@@ -1,3 +1,5 @@
+🌐 **Language**: English | [中文](README.zh-CN.md)
+
 # Qwen3-32B API
 
 A self-hosted Qwen3-32B model, served via vLLM, exposed through a Cloudflare
