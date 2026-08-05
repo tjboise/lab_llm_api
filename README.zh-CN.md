@@ -2,20 +2,20 @@
 
 # Qwen3-32B API
 
-一个自托管的 Qwen3-32B 模型，通过 vLLM 部署，经由 Cloudflare Tunnel 对外提供服务。
-该 API 与 OpenAI 接口兼容，任何 OpenAI SDK/客户端只需修改 `base_url` 和 `api_key`
-即可直接使用。
+一个自托管的 Qwen3-32B 模型，通过 vLLM 部署，经由 ngrok 隧道（固定域名）对外提供
+服务。该 API 与 OpenAI 接口兼容，任何 OpenAI SDK/客户端只需修改 `base_url` 和
+`api_key` 即可直接使用。
 
 ## 连接信息
 
 ```
-Base URL:  https://earned-fully-interactive-acids.trycloudflare.com/v1
+Base URL:  https://improper-faceless-savanna.ngrok-free.dev/v1
 API Key:   <请向管理员索取——出于安全考虑没有写在这里>
 Model:     qwen3-32b
 ```
 
-> **注意：** 这个 Base URL 是临时的 Cloudflare quick tunnel 地址。如果隧道服务
-> 重启（比如主机重启），地址会发生变化。如果请求失败，请找管理员要最新地址。
+> **注意：** 这个 Base URL 是固定的 ngrok 域名——重启或重连都不会变。如果请求
+> 还是失败，可能是模型服务本身挂了，请找管理员看一下。
 >
 > API Key 故意**没有**写在这个文件里。请把它当密码一样对待——任何拿到它的人
 > 都能调用这个模型。Key 会通过其他渠道单独发给你（找给你这份 README 的人要）。
@@ -31,7 +31,7 @@ pip install openai
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://earned-fully-interactive-acids.trycloudflare.com/v1",
+    base_url="https://improper-faceless-savanna.ngrok-free.dev/v1",
     api_key="<你的 API Key>",
 )
 
@@ -54,7 +54,7 @@ npm install openai
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://earned-fully-interactive-acids.trycloudflare.com/v1",
+  baseURL: "https://improper-faceless-savanna.ngrok-free.dev/v1",
   apiKey: "<你的 API Key>",
 });
 
@@ -70,7 +70,7 @@ console.log(response.choices[0].message.content);
 ## curl
 
 ```bash
-curl https://earned-fully-interactive-acids.trycloudflare.com/v1/chat/completions \
+curl https://improper-faceless-savanna.ngrok-free.dev/v1/chat/completions \
   -H "Authorization: Bearer <你的 API Key>" \
   -H "Content-Type: application/json" \
   -d '{

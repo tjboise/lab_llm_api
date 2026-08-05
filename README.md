@@ -2,21 +2,21 @@
 
 # Qwen3-32B API
 
-A self-hosted Qwen3-32B model, served via vLLM, exposed through a Cloudflare
-Tunnel. The API is OpenAI-compatible, so any OpenAI SDK/client works by just
-changing the `base_url` and `api_key`.
+A self-hosted Qwen3-32B model, served via vLLM, exposed through an ngrok
+tunnel on a fixed domain. The API is OpenAI-compatible, so any OpenAI
+SDK/client works by just changing the `base_url` and `api_key`.
 
 ## Connection info
 
 ```
-Base URL:  https://earned-fully-interactive-acids.trycloudflare.com/v1
+Base URL:  https://improper-faceless-savanna.ngrok-free.dev/v1
 API Key:   <ask the admin for this — not written here on purpose>
 Model:     qwen3-32b
 ```
 
-> **Note:** The base URL is a temporary Cloudflare quick tunnel. It will
-> change if the tunnel service restarts (e.g. host reboot). If requests
-> start failing, ask for the current URL.
+> **Note:** The base URL is a fixed ngrok domain — it will stay the same
+> across restarts and reboots. If requests still fail, the model server
+> itself may be down; ask the admin to check.
 >
 > The API key is deliberately **not** included in this file. Treat it like
 > a password — anyone with it can use the model. It's shared out-of-band
@@ -33,7 +33,7 @@ pip install openai
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://earned-fully-interactive-acids.trycloudflare.com/v1",
+    base_url="https://improper-faceless-savanna.ngrok-free.dev/v1",
     api_key="<your API key>",
 )
 
@@ -56,7 +56,7 @@ npm install openai
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://earned-fully-interactive-acids.trycloudflare.com/v1",
+  baseURL: "https://improper-faceless-savanna.ngrok-free.dev/v1",
   apiKey: "<your API key>",
 });
 
@@ -72,7 +72,7 @@ console.log(response.choices[0].message.content);
 ## curl
 
 ```bash
-curl https://earned-fully-interactive-acids.trycloudflare.com/v1/chat/completions \
+curl https://improper-faceless-savanna.ngrok-free.dev/v1/chat/completions \
   -H "Authorization: Bearer <your API key>" \
   -H "Content-Type: application/json" \
   -d '{

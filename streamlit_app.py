@@ -72,7 +72,7 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-BASE_URL = st.secrets["VLLM_BASE_URL"]  # e.g. "https://xxxx.trycloudflare.com/v1"
+BASE_URL = st.secrets["VLLM_BASE_URL"]  # e.g. "https://xxxx.ngrok-free.dev/v1"
 API_KEY = st.secrets["VLLM_API_KEY"]
 
 client = OpenAI(base_url=BASE_URL, api_key=API_KEY)

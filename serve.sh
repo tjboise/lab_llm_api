@@ -14,7 +14,7 @@ SPARK_VLLM_DIR="$HOME/Desktop/spark-vllm-docker"
     --host 0.0.0.0 \
     --port 8000 \
     --api-key "$VLLM_API_KEY" \
-    --gpu-memory-utilization 0.85 \
+    --gpu-memory-utilization 0.75 \
     --max-model-len 32768 \
     --load-format fastsafetensors \
     --enable-prefix-caching \
