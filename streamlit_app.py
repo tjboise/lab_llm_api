@@ -141,10 +141,6 @@ with st.sidebar:
             xaxis=dict(title=None),
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        st.caption(
-            f"Saved **${costs[1]:,.3f}** vs Gemini 2.5 Flash, "
-            f"**${costs[2]:,.3f}** vs GPT-5 — since last server restart."
-        )
     except Exception as e:
         st.caption(f"Usage stats unavailable: {e}")
 
