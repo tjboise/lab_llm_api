@@ -1,5 +1,3 @@
-import re
-
 import plotly.graph_objects as go
 import requests
 import streamlit as st
@@ -84,49 +82,31 @@ with st.sidebar:
         st.rerun()
 
 BASE_URL = st.secrets["VLLM_BASE_URL"]  # e.g. "https://xxxx.ngrok-free.dev/v1"
-API_KEY = st.secrets["VLLM_API_KEY"]
+API_KEY = st.secrets["VLLM_API_KEY_CHAT"]  # dedicated key so usage is tracked as "chat"
 
 
-@st.cache_data(ttl=30)
-def fetch_token_totals():
-    metrics_url = BASE_URL.removesuffix("/v1") + "/metrics"
-    resp = requests.get(
-        metrics_url, headers={"Authorization": f"Bearer {API_KEY}"}, timeout=10
-    )
+@st.cache_data(ttl=15)
+def fetch_usage():
+    usage_url = BASE_URL.removesuffix("/v1") + "/usage"
+    resp = requests.get(usage_url, timeout=10)
     resp.raise_for_status()
-    text = resp.text
-
-    def read_counter(metric_name: str) -> float:
-        total = 0.0
-        for line in text.splitlines():
-            if line.startswith(metric_name + "{") or line.startswith(metric_name + " "):
-                match = re.search(r"}\s+([\d.eE+-]+)$", line) or re.search(r"\s+([\d.eE+-]+)$", line)
-                if match:
-                    total += float(match.group(1))
-        return total
-
-    return read_counter("vllm:prompt_tokens_total"), read_counter("vllm:generation_tokens_total")
-
-
-@st.cache_resource
-def chat_usage_counter():
-    """Shared across all users/sessions of this running app instance."""
-    return {"prompt_tokens": 0, "completion_tokens": 0}
+    return resp.json()  # {"chat": {...}, "api": {...}} — persisted on the server
 
 
 with st.sidebar:
     st.divider()
     st.markdown("## 💰 Usage & Savings")
     try:
-        prompt_tokens, completion_tokens = fetch_token_totals()
-        chat_usage = chat_usage_counter()
-        chat_total = chat_usage["prompt_tokens"] + chat_usage["completion_tokens"]
-        api_total = max(0, (prompt_tokens + completion_tokens) - chat_total)
+        usage = fetch_usage()
+        chat_tokens = usage["chat"]["prompt_tokens"] + usage["chat"]["completion_tokens"]
+        api_tokens = usage["api"]["prompt_tokens"] + usage["api"]["completion_tokens"]
+        prompt_tokens = usage["chat"]["prompt_tokens"] + usage["api"]["prompt_tokens"]
+        completion_tokens = usage["chat"]["completion_tokens"] + usage["api"]["completion_tokens"]
 
-        st.metric("Total tokens", f"{prompt_tokens + completion_tokens:,.0f}")
+        st.metric("Total tokens", f"{chat_tokens + api_tokens:,.0f}")
         stat_col1, stat_col2 = st.columns(2)
-        stat_col1.metric("Chat", f"{chat_total:,.0f}")
-        stat_col2.metric("API", f"{api_total:,.0f}")
+        stat_col1.metric("Chat", f"{chat_tokens:,.0f}")
+        stat_col2.metric("API", f"{api_tokens:,.0f}")
 
         costs, colors, labels = [], [], []
         for name, (price_in, price_out, color) in COMPARISON_MODELS.items():
@@ -178,25 +158,13 @@ if user_input := st.chat_input("Say something..."):
                 messages=st.session_state.messages,
                 max_tokens=2048,
                 stream=True,
-                stream_options={"include_usage": True},
                 extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
-
-            usage_holder = {}
-
-            def stream_text(stream):
-                for chunk in stream:
-                    if chunk.usage:
-                        usage_holder["usage"] = chunk.usage
-                    if chunk.choices and chunk.choices[0].delta.content:
-                        yield chunk.choices[0].delta.content
-
-            reply = st.write_stream(stream_text(stream))
-
-            if "usage" in usage_holder:
-                chat_usage = chat_usage_counter()
-                chat_usage["prompt_tokens"] += usage_holder["usage"].prompt_tokens
-                chat_usage["completion_tokens"] += usage_holder["usage"].completion_tokens
+            reply = st.write_stream(
+                chunk.choices[0].delta.content
+                for chunk in stream
+                if chunk.choices and chunk.choices[0].delta.content
+            )
         except Exception as e:
             reply = f"Error reaching the model API: {e}"
             st.error(reply)

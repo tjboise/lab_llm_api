@@ -8,7 +8,7 @@ set +a
 
 SPARK_VLLM_DIR="$HOME/Desktop/spark-vllm-docker"
 
-"$SPARK_VLLM_DIR/launch-cluster.sh" --solo -d -p 8000:8000 exec \
+"$SPARK_VLLM_DIR/launch-cluster.sh" --solo -d -p 8080:8000 exec \
   vllm serve Qwen/Qwen3-32B \
     --served-model-name qwen3-32b \
     --host 0.0.0.0 \
