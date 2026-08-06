@@ -125,9 +125,8 @@ with st.sidebar:
 
         st.metric("Total tokens", f"{prompt_tokens + completion_tokens:,.0f}")
         stat_col1, stat_col2 = st.columns(2)
-        stat_col1.metric("Web Chat", f"{chat_total:,.0f}")
-        stat_col2.metric("Direct API", f"{api_total:,.0f}")
-        st.caption("Web Chat = used on this page. Direct API = everything else (your own code via the API).")
+        stat_col1.metric("Chat", f"{chat_total:,.0f}")
+        stat_col2.metric("API", f"{api_total:,.0f}")
 
         costs, colors, labels = [], [], []
         for name, (price_in, price_out, color) in COMPARISON_MODELS.items():
