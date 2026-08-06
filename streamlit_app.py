@@ -1,3 +1,7 @@
+import re
+
+import plotly.graph_objects as go
+import requests
 import streamlit as st
 from openai import OpenAI
 
@@ -6,6 +10,13 @@ API_DOCS_URL = "https://github.com/tjboise/lab_llm_api#readme"
 
 MODEL_OPTIONS = {
     "Qwen3-32B": "qwen3-32b",
+}
+
+# Pricing, $ per 1M tokens (input, output). Checked manually — update if prices change.
+COMPARISON_MODELS = {
+    "Self-hosted": (0.0, 0.0, "#2a78d6"),
+    "Gemini 2.5 Flash": (0.30, 2.50, "#eb6834"),
+    "GPT-5": (1.25, 10.00, "#1baf7a"),
 }
 
 st.set_page_config(page_title="WangLab", page_icon="🧪", layout="centered")
@@ -74,6 +85,68 @@ with st.sidebar:
 
 BASE_URL = st.secrets["VLLM_BASE_URL"]  # e.g. "https://xxxx.ngrok-free.dev/v1"
 API_KEY = st.secrets["VLLM_API_KEY"]
+
+
+@st.cache_data(ttl=30)
+def fetch_token_totals():
+    metrics_url = BASE_URL.removesuffix("/v1") + "/metrics"
+    resp = requests.get(
+        metrics_url, headers={"Authorization": f"Bearer {API_KEY}"}, timeout=10
+    )
+    resp.raise_for_status()
+    text = resp.text
+
+    def read_counter(metric_name: str) -> float:
+        total = 0.0
+        for line in text.splitlines():
+            if line.startswith(metric_name + "{") or line.startswith(metric_name + " "):
+                match = re.search(r"}\s+([\d.eE+-]+)$", line) or re.search(r"\s+([\d.eE+-]+)$", line)
+                if match:
+                    total += float(match.group(1))
+        return total
+
+    return read_counter("vllm:prompt_tokens_total"), read_counter("vllm:generation_tokens_total")
+
+
+with st.sidebar:
+    st.divider()
+    st.markdown("## 💰 Usage & Savings")
+    try:
+        prompt_tokens, completion_tokens = fetch_token_totals()
+        st.metric("Total tokens", f"{prompt_tokens + completion_tokens:,.0f}")
+
+        costs, colors, labels = [], [], []
+        for name, (price_in, price_out, color) in COMPARISON_MODELS.items():
+            costs.append(prompt_tokens / 1e6 * price_in + completion_tokens / 1e6 * price_out)
+            colors.append(color)
+            labels.append(name)
+
+        fig = go.Figure(
+            go.Bar(
+                x=costs,
+                y=labels,
+                orientation="h",
+                marker=dict(color=colors),
+                text=[f"${c:,.3f}" for c in costs],
+                textposition="outside",
+                cliponaxis=False,
+            )
+        )
+        fig.update_layout(
+            height=180,
+            margin=dict(l=10, r=45, t=10, b=25),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(size=11),
+            xaxis=dict(title=None),
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.caption(
+            f"Saved **${costs[1]:,.3f}** vs Gemini 2.5 Flash, "
+            f"**${costs[2]:,.3f}** vs GPT-5 — since last server restart."
+        )
+    except Exception as e:
+        st.caption(f"Usage stats unavailable: {e}")
 
 client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
 
