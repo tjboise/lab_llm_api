@@ -108,12 +108,26 @@ def fetch_token_totals():
     return read_counter("vllm:prompt_tokens_total"), read_counter("vllm:generation_tokens_total")
 
 
+@st.cache_resource
+def chat_usage_counter():
+    """Shared across all users/sessions of this running app instance."""
+    return {"prompt_tokens": 0, "completion_tokens": 0}
+
+
 with st.sidebar:
     st.divider()
     st.markdown("## 💰 Usage & Savings")
     try:
         prompt_tokens, completion_tokens = fetch_token_totals()
+        chat_usage = chat_usage_counter()
+        chat_total = chat_usage["prompt_tokens"] + chat_usage["completion_tokens"]
+        api_total = max(0, (prompt_tokens + completion_tokens) - chat_total)
+
         st.metric("Total tokens", f"{prompt_tokens + completion_tokens:,.0f}")
+        stat_col1, stat_col2 = st.columns(2)
+        stat_col1.metric("Web Chat", f"{chat_total:,.0f}")
+        stat_col2.metric("Direct API", f"{api_total:,.0f}")
+        st.caption("Web Chat = used on this page. Direct API = everything else (your own code via the API).")
 
         costs, colors, labels = [], [], []
         for name, (price_in, price_out, color) in COMPARISON_MODELS.items():
@@ -165,13 +179,25 @@ if user_input := st.chat_input("Say something..."):
                 messages=st.session_state.messages,
                 max_tokens=2048,
                 stream=True,
+                stream_options={"include_usage": True},
                 extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
-            reply = st.write_stream(
-                chunk.choices[0].delta.content
-                for chunk in stream
-                if chunk.choices[0].delta.content
-            )
+
+            usage_holder = {}
+
+            def stream_text(stream):
+                for chunk in stream:
+                    if chunk.usage:
+                        usage_holder["usage"] = chunk.usage
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+
+            reply = st.write_stream(stream_text(stream))
+
+            if "usage" in usage_holder:
+                chat_usage = chat_usage_counter()
+                chat_usage["prompt_tokens"] += usage_holder["usage"].prompt_tokens
+                chat_usage["completion_tokens"] += usage_holder["usage"].completion_tokens
         except Exception as e:
             reply = f"Error reaching the model API: {e}"
             st.error(reply)
