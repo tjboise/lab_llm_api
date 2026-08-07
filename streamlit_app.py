@@ -122,7 +122,6 @@ if user_input := st.chat_input("Say something..."):
                 messages=st.session_state.messages,
                 max_tokens=2048,
                 stream=True,
-                user="WangLab Web Chat",
                 extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
             reply = st.write_stream(

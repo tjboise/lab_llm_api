@@ -4,9 +4,10 @@ Stats-tracking reverse proxy in front of vLLM.
 Sits on the public port (8000) and forwards everything to vLLM, which
 listens only on an internal port (8080, not exposed publicly). Requests
 are attributed to "chat" or "api" based on which API key was presented,
-and further broken down by the caller-supplied OpenAI `user` field when
-present. Cumulative token usage is persisted to disk so it survives both
-vLLM restarts and redeploys of any client (e.g. the Streamlit app).
+and further broken down by the caller's source IP address (read from
+X-Forwarded-For, since traffic arrives via the ngrok tunnel). Cumulative
+token usage is persisted to disk so it survives both vLLM restarts and
+redeploys of any client (e.g. the Streamlit app).
 """
 
 import asyncio
@@ -45,16 +46,15 @@ def _load_stats() -> dict:
     return stats
 
 
-async def _record_usage(label: str, prompt_tokens: int, completion_tokens: int, user: str | None):
+async def _record_usage(label: str, prompt_tokens: int, completion_tokens: int, ip: str):
     async with _stats_lock:
         stats = _load_stats()
         stats.setdefault(label, {"prompt_tokens": 0, "completion_tokens": 0})
         stats[label]["prompt_tokens"] += prompt_tokens
         stats[label]["completion_tokens"] += completion_tokens
 
-        user_key = (user or "").strip() or "(unnamed)"
         by_user = stats["by_user"].setdefault(
-            user_key, {"prompt_tokens": 0, "completion_tokens": 0, "source": label, "last_seen": None}
+            ip, {"prompt_tokens": 0, "completion_tokens": 0, "source": label, "last_seen": None}
         )
         by_user["prompt_tokens"] += prompt_tokens
         by_user["completion_tokens"] += completion_tokens
@@ -73,6 +73,13 @@ def _label_for_key(auth_header: str | None) -> str | None:
     return KEY_LABELS.get(key)
 
 
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @app.get("/usage")
 async def usage():
     return JSONResponse(_load_stats())
@@ -89,13 +96,7 @@ async def proxy(path: str, request: Request):
             return JSONResponse({"error": "Invalid API key"}, status_code=401)
 
     body = await request.body()
-
-    caller_name = None
-    if is_tracked_endpoint:
-        try:
-            caller_name = json.loads(body).get("user")
-        except json.JSONDecodeError:
-            pass
+    caller_ip = _client_ip(request)
 
     upstream_headers = dict(request.headers)
     upstream_headers["authorization"] = f"Bearer {VLLM_API_KEY}"
@@ -147,7 +148,7 @@ async def proxy(path: str, request: Request):
             await client.aclose()
             if usage_obj:
                 await _record_usage(label, usage_obj.get("prompt_tokens", 0),
-                                     usage_obj.get("completion_tokens", 0), caller_name)
+                                     usage_obj.get("completion_tokens", 0), caller_ip)
 
     media_type = upstream_resp.headers.get("content-type", "application/json")
     return StreamingResponse(relay(), status_code=upstream_resp.status_code, media_type=media_type)

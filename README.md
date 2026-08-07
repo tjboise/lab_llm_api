@@ -82,22 +82,6 @@ curl https://improper-faceless-savanna.ngrok-free.dev/v1/chat/completions \
   }'
 ```
 
-## Please identify yourself
-
-Pass the standard OpenAI `user` field with your name (or team/project name)
-so usage can be attributed to you on the admin's usage dashboard:
-
-```python
-response = client.chat.completions.create(
-    model="qwen3-32b",
-    messages=[{"role": "user", "content": "Hello!"}],
-    max_tokens=1024,
-    user="your-name-or-project",
-)
-```
-
-Requests without a `user` field still work, but show up as `(unnamed)`.
-
 ## Streaming
 
 Works exactly like the OpenAI API — pass `"stream": true` (curl) or

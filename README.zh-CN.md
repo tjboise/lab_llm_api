@@ -80,22 +80,6 @@ curl https://improper-faceless-savanna.ngrok-free.dev/v1/chat/completions \
   }'
 ```
 
-## 请表明身份
-
-调用时请带上 OpenAI 标准的 `user` 字段，填你的名字（或者团队/项目名），
-这样管理员在统计面板上就能看出用量是谁产生的：
-
-```python
-response = client.chat.completions.create(
-    model="qwen3-32b",
-    messages=[{"role": "user", "content": "你好！"}],
-    max_tokens=1024,
-    user="你的名字或项目名",
-)
-```
-
-不带 `user` 字段也能正常调用，只是会显示成 `(unnamed)`。
-
 ## 流式输出（Streaming）
 
 用法和 OpenAI API 完全一样——curl 传 `"stream": true`，Python SDK 传

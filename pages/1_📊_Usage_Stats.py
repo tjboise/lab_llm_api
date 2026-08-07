@@ -107,7 +107,7 @@ if not by_user:
     st.caption("No per-user data yet.")
 else:
     rows = []
-    for name, u in by_user.items():
+    for ip, u in by_user.items():
         last_seen = u.get("last_seen")
         if last_seen:
             dt = datetime.fromisoformat(last_seen)
@@ -122,7 +122,7 @@ else:
         else:
             last_seen_display = "—"
         rows.append({
-            "Name": name,
+            "Caller (IP)": ip,
             "Source": u.get("source", "?"),
             "Total tokens": u["prompt_tokens"] + u["completion_tokens"],
             "Prompt": u["prompt_tokens"],
@@ -133,6 +133,7 @@ else:
     df = pd.DataFrame(rows).sort_values("Total tokens", ascending=False).reset_index(drop=True)
     st.dataframe(df, use_container_width=True, hide_index=True)
     st.caption(
-        "Names come from the `user` field callers pass in their API requests "
-        "(see the API docs). Unlabeled requests show up as `(unnamed)`."
+        "Caller identified by source IP address. Everyone on the WangLab "
+        "chat page shares one \"chat\" source; direct API callers each show "
+        "their own IP."
     )
