@@ -1,4 +1,3 @@
-import plotly.graph_objects as go
 import requests
 import streamlit as st
 from openai import OpenAI
@@ -8,13 +7,6 @@ API_DOCS_URL = "https://github.com/tjboise/lab_llm_api#readme"
 
 MODEL_OPTIONS = {
     "Qwen3-32B": "qwen3-32b",
-}
-
-# Pricing, $ per 1M tokens (input, output). Checked manually — update if prices change.
-COMPARISON_MODELS = {
-    "Self-hosted": (0.0, 0.0, "#2a78d6"),
-    "Gemini 2.5 Flash": (0.30, 2.50, "#eb6834"),
-    "GPT-5": (1.25, 10.00, "#1baf7a"),
 }
 
 st.set_page_config(page_title="WangLab", page_icon="🧪", layout="centered")
@@ -95,45 +87,17 @@ def fetch_usage():
 
 with st.sidebar:
     st.divider()
-    st.markdown("## 💰 Usage & Savings")
+    st.markdown("## 💰 Usage")
     try:
         usage = fetch_usage()
         chat_tokens = usage["chat"]["prompt_tokens"] + usage["chat"]["completion_tokens"]
         api_tokens = usage["api"]["prompt_tokens"] + usage["api"]["completion_tokens"]
-        prompt_tokens = usage["chat"]["prompt_tokens"] + usage["api"]["prompt_tokens"]
-        completion_tokens = usage["chat"]["completion_tokens"] + usage["api"]["completion_tokens"]
 
         st.metric("Total tokens", f"{chat_tokens + api_tokens:,.0f}")
         stat_col1, stat_col2 = st.columns(2)
         stat_col1.metric("Chat", f"{chat_tokens:,.0f}")
         stat_col2.metric("API", f"{api_tokens:,.0f}")
-
-        costs, colors, labels = [], [], []
-        for name, (price_in, price_out, color) in COMPARISON_MODELS.items():
-            costs.append(prompt_tokens / 1e6 * price_in + completion_tokens / 1e6 * price_out)
-            colors.append(color)
-            labels.append(name)
-
-        fig = go.Figure(
-            go.Bar(
-                x=costs,
-                y=labels,
-                orientation="h",
-                marker=dict(color=colors),
-                text=[f"${c:,.3f}" for c in costs],
-                textposition="outside",
-                cliponaxis=False,
-            )
-        )
-        fig.update_layout(
-            height=180,
-            margin=dict(l=10, r=45, t=10, b=25),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            font=dict(size=11),
-            xaxis=dict(title=None),
-        )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.page_link("pages/1_📊_Usage_Stats.py", label="Full stats & who's using it", icon="📊")
     except Exception as e:
         st.caption(f"Usage stats unavailable: {e}")
 
@@ -158,6 +122,7 @@ if user_input := st.chat_input("Say something..."):
                 messages=st.session_state.messages,
                 max_tokens=2048,
                 stream=True,
+                user="WangLab Web Chat",
                 extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
             reply = st.write_stream(

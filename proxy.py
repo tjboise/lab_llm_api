@@ -4,13 +4,15 @@ Stats-tracking reverse proxy in front of vLLM.
 Sits on the public port (8000) and forwards everything to vLLM, which
 listens only on an internal port (8080, not exposed publicly). Requests
 are attributed to "chat" or "api" based on which API key was presented,
-and cumulative token usage is persisted to disk so it survives both
+and further broken down by the caller-supplied OpenAI `user` field when
+present. Cumulative token usage is persisted to disk so it survives both
 vLLM restarts and redeploys of any client (e.g. the Streamlit app).
 """
 
 import asyncio
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -35,17 +37,30 @@ _stats_lock = asyncio.Lock()
 
 def _load_stats() -> dict:
     if STATS_FILE.exists():
-        return json.loads(STATS_FILE.read_text())
-    return {"chat": {"prompt_tokens": 0, "completion_tokens": 0},
-            "api": {"prompt_tokens": 0, "completion_tokens": 0}}
+        stats = json.loads(STATS_FILE.read_text())
+    else:
+        stats = {"chat": {"prompt_tokens": 0, "completion_tokens": 0},
+                  "api": {"prompt_tokens": 0, "completion_tokens": 0}}
+    stats.setdefault("by_user", {})
+    return stats
 
 
-async def _record_usage(label: str, prompt_tokens: int, completion_tokens: int):
+async def _record_usage(label: str, prompt_tokens: int, completion_tokens: int, user: str | None):
     async with _stats_lock:
         stats = _load_stats()
         stats.setdefault(label, {"prompt_tokens": 0, "completion_tokens": 0})
         stats[label]["prompt_tokens"] += prompt_tokens
         stats[label]["completion_tokens"] += completion_tokens
+
+        user_key = (user or "").strip() or "(unnamed)"
+        by_user = stats["by_user"].setdefault(
+            user_key, {"prompt_tokens": 0, "completion_tokens": 0, "source": label, "last_seen": None}
+        )
+        by_user["prompt_tokens"] += prompt_tokens
+        by_user["completion_tokens"] += completion_tokens
+        by_user["source"] = label
+        by_user["last_seen"] = datetime.now(timezone.utc).isoformat()
+
         tmp = STATS_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(stats))
         tmp.replace(STATS_FILE)
@@ -74,6 +89,14 @@ async def proxy(path: str, request: Request):
             return JSONResponse({"error": "Invalid API key"}, status_code=401)
 
     body = await request.body()
+
+    caller_name = None
+    if is_tracked_endpoint:
+        try:
+            caller_name = json.loads(body).get("user")
+        except json.JSONDecodeError:
+            pass
+
     upstream_headers = dict(request.headers)
     upstream_headers["authorization"] = f"Bearer {VLLM_API_KEY}"
     upstream_headers.pop("host", None)
@@ -124,7 +147,7 @@ async def proxy(path: str, request: Request):
             await client.aclose()
             if usage_obj:
                 await _record_usage(label, usage_obj.get("prompt_tokens", 0),
-                                     usage_obj.get("completion_tokens", 0))
+                                     usage_obj.get("completion_tokens", 0), caller_name)
 
     media_type = upstream_resp.headers.get("content-type", "application/json")
     return StreamingResponse(relay(), status_code=upstream_resp.status_code, media_type=media_type)
