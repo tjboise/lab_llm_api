@@ -98,6 +98,17 @@ async def proxy(path: str, request: Request):
     body = await request.body()
     caller_ip = _client_ip(request)
 
+    if is_tracked_endpoint:
+        # Force include_usage on streaming requests so we can always see
+        # token counts, regardless of whether the caller asked for them.
+        try:
+            parsed_body = json.loads(body)
+            if parsed_body.get("stream"):
+                parsed_body.setdefault("stream_options", {})["include_usage"] = True
+                body = json.dumps(parsed_body).encode()
+        except json.JSONDecodeError:
+            pass
+
     upstream_headers = dict(request.headers)
     upstream_headers["authorization"] = f"Bearer {VLLM_API_KEY}"
     upstream_headers.pop("host", None)
