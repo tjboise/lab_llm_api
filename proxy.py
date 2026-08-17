@@ -20,7 +20,11 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-UPSTREAM = "http://localhost:8080"
+DEFAULT_UPSTREAM = "http://localhost:8080"
+MODEL_UPSTREAMS = {
+    "qwen3-32b": "http://localhost:8080",
+    "qwen3-vl-8b": "http://localhost:8081",
+}
 STATS_FILE = Path(__file__).parent / "usage_stats.json"
 
 VLLM_API_KEY = os.environ["VLLM_API_KEY"]  # used to authenticate to vLLM itself
@@ -97,12 +101,14 @@ async def proxy(path: str, request: Request):
 
     body = await request.body()
     caller_ip = _client_ip(request)
+    upstream = DEFAULT_UPSTREAM
 
     if is_tracked_endpoint:
         # Force include_usage on streaming requests so we can always see
         # token counts, regardless of whether the caller asked for them.
         try:
             parsed_body = json.loads(body)
+            upstream = MODEL_UPSTREAMS.get(parsed_body.get("model"), DEFAULT_UPSTREAM)
             if parsed_body.get("stream"):
                 parsed_body.setdefault("stream_options", {})["include_usage"] = True
                 body = json.dumps(parsed_body).encode()
@@ -117,7 +123,7 @@ async def proxy(path: str, request: Request):
 
     client = httpx.AsyncClient(timeout=300.0)
     req = client.build_request(
-        request.method, f"{UPSTREAM}/{path}",
+        request.method, f"{upstream}/{path}",
         params=request.query_params, headers=upstream_headers, content=body,
     )
     upstream_resp = await client.send(req, stream=True)

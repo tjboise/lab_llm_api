@@ -1,17 +1,22 @@
 🌐 **Language**: English | [中文](README.zh-CN.md)
 
-# Qwen3-32B API
+# Qwen3 API
 
-A self-hosted Qwen3-32B model, served via vLLM, exposed through an ngrok
+Two self-hosted Qwen3 models, served via vLLM, exposed through an ngrok
 tunnel on a fixed domain. The API is OpenAI-compatible, so any OpenAI
 SDK/client works by just changing the `base_url` and `api_key`.
+
+| Model | `model` id | Use for |
+|---|---|---|
+| Qwen3-32B | `qwen3-32b` | General text chat |
+| Qwen3-VL-8B-Instruct | `qwen3-vl-8b` | Vision — text + image input |
 
 ## Connection info
 
 ```
 Base URL:  https://improper-faceless-savanna.ngrok-free.dev/v1
 API Key:   <ask the admin for this — not written here on purpose>
-Model:     qwen3-32b
+Model:     qwen3-32b  (or qwen3-vl-8b for vision)
 ```
 
 > **Note:** The base URL is a fixed ngrok domain — it will stay the same
@@ -99,6 +104,33 @@ answer, and by default "thinking" is turned on. This means:
   ```json
   "chat_template_kwargs": {"enable_thinking": false}
   ```
+
+## Vision (image input)
+
+Use `model: "qwen3-vl-8b"` and pass images the same way as the OpenAI vision
+API — as a content list with `image_url` parts (base64 data URI or a public
+URL):
+
+```python
+import base64
+
+with open("photo.jpg", "rb") as f:
+    b64_image = base64.b64encode(f.read()).decode()
+
+response = client.chat.completions.create(
+    model="qwen3-vl-8b",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "What's in this image?"},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}},
+        ],
+    }],
+    max_tokens=1024,
+)
+
+print(response.choices[0].message.content)
+```
 
 ## Other endpoints
 
