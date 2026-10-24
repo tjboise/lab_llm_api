@@ -2,21 +2,20 @@
 
 # Qwen3 API
 
-两个自托管的 Qwen3 模型，通过 vLLM 部署，经由 ngrok 隧道（固定域名）对外提供
+自托管的 Qwen3-32B 模型，通过 vLLM 部署，经由 ngrok 隧道（固定域名）对外提供
 服务。该 API 与 OpenAI 接口兼容，任何 OpenAI SDK/客户端只需修改 `base_url` 和
 `api_key` 即可直接使用。
 
 | 模型 | `model` 字段 | 用途 |
 |---|---|---|
 | Qwen3-32B | `qwen3-32b` | 通用文本对话 |
-| Qwen3-VL-8B-Instruct | `qwen3-vl-8b` | 视觉——支持文字+图片输入 |
 
 ## 连接信息
 
 ```
 Base URL:  https://improper-faceless-savanna.ngrok-free.dev/v1
 API Key:   <请向管理员索取——出于安全考虑没有写在这里>
-Model:     qwen3-32b（视觉任务用 qwen3-vl-8b）
+Model:     qwen3-32b
 ```
 
 > **注意：** 这个 Base URL 是固定的 ngrok 域名——重启或重连都不会变。如果请求
@@ -103,38 +102,11 @@ Qwen3 默认会先输出一段推理过程（放在单独的 `reasoning` 字段�
   "chat_template_kwargs": {"enable_thinking": false}
   ```
 
-## 视觉能力（图片输入）
-
-使用 `model: "qwen3-vl-8b"`，图片传入方式和 OpenAI 视觉 API 一样——在
-content 里加一个 `image_url` 部分（base64 data URI 或公网可访问的图片链接）：
-
-```python
-import base64
-
-with open("photo.jpg", "rb") as f:
-    b64_image = base64.b64encode(f.read()).decode()
-
-response = client.chat.completions.create(
-    model="qwen3-vl-8b",
-    messages=[{
-        "role": "user",
-        "content": [
-            {"type": "text", "text": "这张图片里有什么？"},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}},
-        ],
-    }],
-    max_tokens=1024,
-)
-
-print(response.choices[0].message.content)
-```
-
 ## 其他接口
 
 标准的 vLLM OpenAI 兼容路由都可以用，例如：
 - `GET /v1/models` — 列出可用模型
 - `POST /v1/completions` — 传统 completions 接口
-- `POST /v1/embeddings` — 不支持（这不是一个 embedding 模型）
 - `GET /health` — 健康检查（不需要鉴权）
 
 ## 限制

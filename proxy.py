@@ -21,10 +21,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 DEFAULT_UPSTREAM = "http://localhost:8080"
-MODEL_UPSTREAMS = {
-    "qwen3-32b": "http://localhost:8080",
-    "qwen3-vl-8b": "http://localhost:8081",
-}
 STATS_FILE = Path(__file__).parent / "usage_stats.json"
 
 VLLM_API_KEY = os.environ["VLLM_API_KEY"]  # used to authenticate to vLLM itself
@@ -108,7 +104,6 @@ async def proxy(path: str, request: Request):
         # token counts, regardless of whether the caller asked for them.
         try:
             parsed_body = json.loads(body)
-            upstream = MODEL_UPSTREAMS.get(parsed_body.get("model"), DEFAULT_UPSTREAM)
             if parsed_body.get("stream"):
                 parsed_body.setdefault("stream_options", {})["include_usage"] = True
                 body = json.dumps(parsed_body).encode()
