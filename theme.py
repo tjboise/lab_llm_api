@@ -62,13 +62,11 @@ hr {{ border-color: {BORDER}; }}
 
 
 def apply_theme(title: str, subtitle: str, mark: str = "✻"):
-    st.markdown(
-        _CSS
-        + f"""
-        <div class="wanglab-banner">
-            <h1 class="wanglab-title"><span class="mark">{mark}</span> {title}</h1>
-            <p class="wanglab-sub">{subtitle}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # No indentation in the HTML: Markdown would render 4+ spaces as a code block.
+    banner = (
+        '<div class="wanglab-banner">'
+        f'<h1 class="wanglab-title"><span class="mark">{mark}</span> {title}</h1>'
+        f'<p class="wanglab-sub">{subtitle}</p>'
+        "</div>"
     )
+    st.markdown(_CSS + banner, unsafe_allow_html=True)
