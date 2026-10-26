@@ -5,38 +5,18 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
-RUTGERS_SCARLET = "#CC0033"
+from theme import apply_theme
 
 # Pricing, $ per 1M tokens (input, output). Checked manually — update if prices change.
 COMPARISON_MODELS = {
-    "Self-hosted": (0.0, 0.0, "#2a78d6"),
-    "Gemini 2.5 Flash": (0.30, 2.50, "#eb6834"),
-    "GPT-5": (1.25, 10.00, "#1baf7a"),
+    "Self-hosted": (0.0, 0.0, "#D97757"),
+    "Gemini 2.5 Flash": (0.30, 2.50, "#6A9BCC"),
+    "GPT-5": (1.25, 10.00, "#788C5D"),
 }
 
 st.set_page_config(page_title="WangLab — Usage Stats", page_icon="📊", layout="centered")
 
-st.markdown(
-    f"""
-    <style>
-    .block-container {{ padding-top: 2rem; }}
-    .wanglab-banner {{
-        background: linear-gradient(90deg, {RUTGERS_SCARLET} 0%, #8a0026 100%);
-        padding: 1.25rem 1.5rem;
-        border-radius: 12px;
-        margin-bottom: 1.5rem;
-        color: white;
-    }}
-    .wanglab-banner h1 {{ margin: 0; font-size: 1.8rem; color: white; }}
-    .wanglab-banner p {{ margin: 0.25rem 0 0 0; opacity: 0.9; font-size: 0.95rem; }}
-    </style>
-    <div class="wanglab-banner">
-        <h1>📊 Usage Stats</h1>
-        <p>Rutgers University · Self-hosted LLM Chat</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+apply_theme("Usage Stats", "Rutgers University · Self-hosted LLM Chat", mark="📊")
 
 
 @st.cache_data(ttl=15)
@@ -91,7 +71,7 @@ fig.update_layout(
     margin=dict(l=10, r=60, t=10, b=40),
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    font=dict(size=14),
+    font=dict(size=14, color="#141413"),
 )
 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
