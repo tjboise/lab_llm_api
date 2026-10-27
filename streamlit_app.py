@@ -1,3 +1,5 @@
+import base64
+
 import requests
 import streamlit as st
 from openai import OpenAI
@@ -6,7 +8,7 @@ from theme import apply_theme
 
 API_DOCS_URL = "https://github.com/tjboise/lab_llm_api#readme"
 
-MODEL = "qwen3-32b"
+MODEL = "llama-4-scout"
 
 st.set_page_config(page_title="WangLab", page_icon="✻", layout="centered")
 
@@ -14,9 +16,17 @@ apply_theme("WangLab", "Rutgers University · Self-hosted LLM Chat")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
 
 with st.sidebar:
     st.markdown("## Settings")
+    uploaded_images = st.file_uploader(
+        "Attach image(s)",
+        type=["png", "jpg", "jpeg", "webp"],
+        accept_multiple_files=True,
+        key=f"uploader_{st.session_state.uploader_key}",
+    )
 
     st.divider()
     st.link_button("🔌 Use the API", API_DOCS_URL, use_container_width=True)
@@ -58,14 +68,35 @@ with st.sidebar:
 client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
 
 
+def render_content(content):
+    if isinstance(content, str):
+        st.markdown(content)
+        return
+    for part in content:
+        if part["type"] == "text":
+            st.markdown(part["text"])
+        elif part["type"] == "image_url":
+            header, b64data = part["image_url"]["url"].split(",", 1)
+            st.image(base64.b64decode(b64data))
+
+
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        render_content(message["content"])
 
 if user_input := st.chat_input("Say something..."):
-    st.session_state.messages.append({"role": "user", "content": user_input})
+    if uploaded_images:
+        content = [{"type": "text", "text": user_input}]
+        for img in uploaded_images:
+            b64data = base64.b64encode(img.getvalue()).decode()
+            content.append({"type": "image_url", "image_url": {"url": f"data:{img.type};base64,{b64data}"}})
+        st.session_state.uploader_key += 1  # reset the file_uploader widget
+    else:
+        content = user_input
+
+    st.session_state.messages.append({"role": "user", "content": content})
     with st.chat_message("user"):
-        st.markdown(user_input)
+        render_content(content)
 
     with st.chat_message("assistant"):
         try:
@@ -74,7 +105,6 @@ if user_input := st.chat_input("Say something..."):
                 messages=st.session_state.messages,
                 max_tokens=2048,
                 stream=True,
-                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
             reply = st.write_stream(
                 chunk.choices[0].delta.content

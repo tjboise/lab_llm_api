@@ -1,21 +1,21 @@
 🌐 **Language**: English | [中文](README.zh-CN.md)
 
-# Qwen3 API
+# Llama 4 Scout API
 
-A self-hosted Qwen3-32B model, served via vLLM, exposed through an ngrok
+A self-hosted Llama 4 Scout (4-bit quantized) multimodal model, served via vLLM, exposed through an ngrok
 tunnel on a fixed domain. The API is OpenAI-compatible, so any OpenAI
 SDK/client works by just changing the `base_url` and `api_key`.
 
 | Model | `model` id | Use for |
 |---|---|---|
-| Qwen3-32B | `qwen3-32b` | General text chat |
+| Llama 4 Scout | `llama-4-scout` | Text chat + image understanding (vision) |
 
 ## Connection info
 
 ```
 Base URL:  https://improper-faceless-savanna.ngrok-free.dev/v1
 API Key:   <ask the admin for this — not written here on purpose>
-Model:     qwen3-32b
+Model:     llama-4-scout
 ```
 
 > **Note:** The base URL is a fixed ngrok domain — it will stay the same
@@ -42,7 +42,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen3-32b",
+    model="llama-4-scout",
     messages=[{"role": "user", "content": "Hello!"}],
     max_tokens=1024,
 )
@@ -65,7 +65,7 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-  model: "qwen3-32b",
+  model: "llama-4-scout",
   messages: [{ role: "user", content: "Hello!" }],
   max_tokens: 1024,
 });
@@ -80,7 +80,7 @@ curl https://improper-faceless-savanna.ngrok-free.dev/v1/chat/completions \
   -H "Authorization: Bearer <your API key>" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3-32b",
+    "model": "llama-4-scout",
     "messages": [{"role": "user", "content": "Hello!"}],
     "max_tokens": 1024
   }'
@@ -91,18 +91,31 @@ curl https://improper-faceless-savanna.ngrok-free.dev/v1/chat/completions \
 Works exactly like the OpenAI API — pass `"stream": true` (curl) or
 `stream=True` (Python SDK) / `stream: true` (JS SDK).
 
-## Qwen3 "thinking" mode
+## Vision (image input)
 
-Qwen3 emits its reasoning as a separate `reasoning` field before the final
-answer, and by default "thinking" is turned on. This means:
+Pass images the same way as the OpenAI vision API — as a content list with
+`image_url` parts (base64 data URI or a public URL). Up to 4 images per request:
 
-- **Set `max_tokens` generously** (1000+). With a small `max_tokens`, the
-  budget can be consumed entirely by the reasoning trace, leaving no room
-  for the actual answer (`content` will be `null`, `finish_reason: "length"`).
-- To disable thinking and get a direct answer, add to your request:
-  ```json
-  "chat_template_kwargs": {"enable_thinking": false}
-  ```
+```python
+import base64
+
+with open("photo.jpg", "rb") as f:
+    b64_image = base64.b64encode(f.read()).decode()
+
+response = client.chat.completions.create(
+    model="llama-4-scout",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "What's in this image?"},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}},
+        ],
+    }],
+    max_tokens=1024,
+)
+
+print(response.choices[0].message.content)
+```
 
 ## Other endpoints
 
@@ -113,5 +126,4 @@ Standard vLLM OpenAI-compatible routes are all available, e.g.:
 
 ## Limits
 
-- Context window: 32,768 tokens (prompt + completion combined)
-- Concurrency: ~4-5 simultaneous requests before KV cache is exhausted
+- Context window: 16,384 tokens (prompt + completion combined)
