@@ -117,6 +117,32 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
+## Documents (PDF / Word)
+
+The API takes text and images, not files. To analyze a PDF or Word document,
+extract its text on your side and put it in the prompt:
+
+```python
+from pypdf import PdfReader          # pip install pypdf
+from docx import Document            # pip install python-docx
+
+text = "\n".join(p.extract_text() or "" for p in PdfReader("report.pdf").pages)
+# Word: text = "\n".join(p.text for p in Document("notes.docx").paragraphs)
+
+response = client.chat.completions.create(
+    model="llama-4-scout",
+    messages=[{"role": "user", "content": f"Summarize this document:\n\n{text}"}],
+    max_tokens=1024,
+)
+print(response.choices[0].message.content)
+```
+
+Keep the text under roughly 24,000 characters (the context window is 16,384
+tokens, prompt + answer combined). For longer documents, split them into
+parts. A scanned PDF has no text to extract — send its pages as images instead
+(see Vision above). The chat web page does all of this for you: attach a
+`.pdf` or `.docx` in the sidebar.
+
 ## Other endpoints
 
 Standard vLLM OpenAI-compatible routes are all available, e.g.:

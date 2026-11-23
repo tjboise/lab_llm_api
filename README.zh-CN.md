@@ -115,6 +115,31 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
+## 文档分析（PDF / Word）
+
+API 接收文字和图片，不直接接收文件。要分析 PDF 或 Word，请先在你这边提取文字，
+再放进 prompt 里：
+
+```python
+from pypdf import PdfReader          # pip install pypdf
+from docx import Document            # pip install python-docx
+
+text = "\n".join(p.extract_text() or "" for p in PdfReader("report.pdf").pages)
+# Word: text = "\n".join(p.text for p in Document("notes.docx").paragraphs)
+
+response = client.chat.completions.create(
+    model="llama-4-scout",
+    messages=[{"role": "user", "content": f"请总结这份文档：\n\n{text}"}],
+    max_tokens=1024,
+)
+print(response.choices[0].message.content)
+```
+
+文字建议控制在约 24,000 字符以内（上下文窗口是 16,384 tokens，prompt 和回答
+加起来）。更长的文档请分段处理。扫描版 PDF 提取不出文字，请把页面当图片发送
+（见上面的视觉能力一节）。聊天网页已经帮你做好了这些：在侧边栏直接上传
+`.pdf` 或 `.docx` 即可。
+
 ## 其他接口
 
 标准的 vLLM OpenAI 兼容路由都可以用，例如：

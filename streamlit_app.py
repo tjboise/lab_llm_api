@@ -1,14 +1,19 @@
 import base64
+import io
 
 import requests
 import streamlit as st
+from docx import Document
 from openai import OpenAI
+from pypdf import PdfReader
 
 from theme import apply_theme
 
 API_DOCS_URL = "https://github.com/tjboise/lab_llm_api#readme"
 
 MODEL = "llama-4-scout"
+# The model's context window is 16K tokens; leave room for the question and the answer.
+MAX_DOC_CHARS = 24_000
 
 st.set_page_config(page_title="WangLab", page_icon="✻", layout="centered")
 
@@ -21,9 +26,9 @@ if "uploader_key" not in st.session_state:
 
 with st.sidebar:
     st.markdown("## Settings")
-    uploaded_images = st.file_uploader(
-        "Attach image(s)",
-        type=["png", "jpg", "jpeg", "webp"],
+    uploaded_files = st.file_uploader(
+        "Attach images or documents (PDF, Word)",
+        type=["png", "jpg", "jpeg", "webp", "pdf", "docx"],
         accept_multiple_files=True,
         key=f"uploader_{st.session_state.uploader_key}",
     )
@@ -68,6 +73,33 @@ with st.sidebar:
 client = OpenAI(base_url=BASE_URL, api_key=API_KEY)
 
 
+def extract_text(file) -> str:
+    if file.name.lower().endswith(".pdf"):
+        return "\n\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(file.getvalue())).pages)
+    doc = Document(io.BytesIO(file.getvalue()))
+    parts = [p.text for p in doc.paragraphs]
+    for table in doc.tables:
+        parts += [" | ".join(cell.text for cell in row.cells) for row in table.rows]
+    return "\n".join(parts)
+
+
+def to_api_messages(messages):
+    """Turn stored messages (which may hold "doc" parts) into OpenAI-format messages."""
+    api_messages = []
+    for m in messages:
+        if isinstance(m["content"], str):
+            api_messages.append(m)
+            continue
+        parts = []
+        for part in m["content"]:
+            if part["type"] == "doc":
+                parts.append({"type": "text", "text": f'[Attached document: {part["name"]}]\n{part["text"]}'})
+            else:
+                parts.append(part)
+        api_messages.append({"role": m["role"], "content": parts})
+    return api_messages
+
+
 def render_content(content):
     if isinstance(content, str):
         st.markdown(content)
@@ -75,6 +107,8 @@ def render_content(content):
     for part in content:
         if part["type"] == "text":
             st.markdown(part["text"])
+        elif part["type"] == "doc":
+            st.caption(f'📄 {part["name"]}')
         elif part["type"] == "image_url":
             header, b64data = part["image_url"]["url"].split(",", 1)
             st.image(base64.b64decode(b64data))
@@ -85,11 +119,27 @@ for message in st.session_state.messages:
         render_content(message["content"])
 
 if user_input := st.chat_input("Say something..."):
-    if uploaded_images:
+    if uploaded_files:
         content = [{"type": "text", "text": user_input}]
-        for img in uploaded_images:
-            b64data = base64.b64encode(img.getvalue()).decode()
-            content.append({"type": "image_url", "image_url": {"url": f"data:{img.type};base64,{b64data}"}})
+        budget = MAX_DOC_CHARS
+        for f in uploaded_files:
+            if f.name.lower().endswith((".pdf", ".docx")):
+                try:
+                    text = extract_text(f)
+                except Exception as e:
+                    st.error(f"Couldn't read {f.name}: {e}")
+                    continue
+                if not text.strip():
+                    st.warning(f"{f.name} has no extractable text (scanned PDF?). Upload its pages as images instead.")
+                    continue
+                if len(text) > budget:
+                    st.warning(f"{f.name} is too long for the model's context window; only the first part is used.")
+                text = text[:budget]
+                budget -= len(text)
+                content.append({"type": "doc", "name": f.name, "text": text})
+            else:
+                b64data = base64.b64encode(f.getvalue()).decode()
+                content.append({"type": "image_url", "image_url": {"url": f"data:{f.type};base64,{b64data}"}})
         st.session_state.uploader_key += 1  # reset the file_uploader widget
     else:
         content = user_input
@@ -102,7 +152,7 @@ if user_input := st.chat_input("Say something..."):
         try:
             stream = client.chat.completions.create(
                 model=MODEL,
-                messages=st.session_state.messages,
+                messages=to_api_messages(st.session_state.messages),
                 max_tokens=2048,
                 stream=True,
             )
