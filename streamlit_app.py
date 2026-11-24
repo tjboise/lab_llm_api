@@ -21,17 +21,10 @@ apply_theme("WangLab", "Rutgers University · Self-hosted LLM Chat")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "uploader_key" not in st.session_state:
-    st.session_state.uploader_key = 0
 
 with st.sidebar:
     st.markdown("## Settings")
-    uploaded_files = st.file_uploader(
-        "Attach images or documents (PDF, Word)",
-        type=["png", "jpg", "jpeg", "webp", "pdf", "docx"],
-        accept_multiple_files=True,
-        key=f"uploader_{st.session_state.uploader_key}",
-    )
+    st.caption("Use the **+** button in the message box to attach images, PDF or Word files.")
 
     st.divider()
     st.link_button("🔌 Use the API", API_DOCS_URL, use_container_width=True)
@@ -118,7 +111,13 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         render_content(message["content"])
 
-if user_input := st.chat_input("Say something..."):
+if prompt := st.chat_input(
+    "Say something...",
+    accept_file="multiple",
+    file_type=["png", "jpg", "jpeg", "webp", "pdf", "docx"],
+):
+    user_input = prompt.text or "Please analyze the attached file(s)."
+    uploaded_files = prompt.files
     if uploaded_files:
         content = [{"type": "text", "text": user_input}]
         budget = MAX_DOC_CHARS
@@ -140,7 +139,6 @@ if user_input := st.chat_input("Say something..."):
             else:
                 b64data = base64.b64encode(f.getvalue()).decode()
                 content.append({"type": "image_url", "image_url": {"url": f"data:{f.type};base64,{b64data}"}})
-        st.session_state.uploader_key += 1  # reset the file_uploader widget
     else:
         content = user_input
 

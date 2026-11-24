@@ -140,8 +140,8 @@ print(response.choices[0].message.content)
 Keep the text under roughly 24,000 characters (the context window is 16,384
 tokens, prompt + answer combined). For longer documents, split them into
 parts. A scanned PDF has no text to extract — send its pages as images instead
-(see Vision above). The chat web page does all of this for you: attach a
-`.pdf` or `.docx` in the sidebar.
+(see Vision above). The chat web page does all of this for you: click the **+**
+in the message box and attach a `.pdf` or `.docx`.
 
 ## Other endpoints
 
